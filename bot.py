@@ -1,61 +1,55 @@
 import os
 import subprocess
 import discord
+from discord import app_commands
 from discord.ext import commands
+from dotenv import load_dotenv
 
-TOKEN = os.getenv("DISCORD_TOKEN")  # Set this in your environment
+# Load environment variables from .env file
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")  # Ensure this key is set in your Railway environment
+
+# Set up intents (adjust as needed)
 intents = discord.Intents.default()
-intents.message_content = True  # Required for receiving message content
+intents.message_content = True  # Needed if you use message commands; required for some slash interactions too
 
-bot = commands.Bot(command_prefix='/', intents=intents)
+# Create the bot instance
+bot = commands.Bot(command_prefix='!', intents=intents)
 
+# When the bot is ready, sync the app commands (slash commands)
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user.name}')
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s).")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
+# Define the slash command
+@bot.tree.command(name="nmap", description="Run an Nmap scan on a target")
+@app_commands.describe(flag="Nmap flag (e.g., -sV)", ip="Target IP address or domain")
+async def nmap(interaction: discord.Interaction, flag: str, ip: str):
+    # Acknowledge the interaction immediately
+    await interaction.response.defer()
+    try:
+        # Execute the Nmap command; adjust timeout as needed
+        result = subprocess.run(['nmap', flag, ip],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                timeout=60)
+        # Combine stdout and stderr output
+        output = result.stdout + result.stderr
+        if not output.strip():
+            output = "No output received."
+        # Truncate output if too long for Discord (max ~2000 characters)
+        if len(output) > 1900:
+            output = output[:1900] + "\n...Output truncated."
+        await interaction.followup.send(f"```{output}```")
+    except subprocess.TimeoutExpired:
+        await interaction.followup.send("Nmap scan timed out.")
+    except Exception as e:
+        await interaction.followup.send(f"Error running scan: {str(e)}")
 
-    if message.content.startswith('/nmap'):
-        parts = message.content.split()
-        if len(parts) < 3:
-            await message.channel.send("Usage: `/nmap -flag IP` (e.g. `/nmap -sV 1.2.3.4`)")
-            return
-
-        flag = parts[1]
-        ip = parts[2]
-
-        # Sanitize inputs
-        if not flag.startswith('-') or any(c in flag for c in ';|&$`'):
-            await message.channel.send("Invalid flag.")
-            return
-        if any(c in ip for c in ';|&$`') or len(ip) > 50:
-            await message.channel.send("Invalid IP.")
-            return
-
-        await message.channel.send(f"Running `nmap {flag} {ip}`... This might take a moment.")
-
-        try:
-            result = subprocess.run(
-                ['nmap', flag, ip],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=30
-            )
-
-            output = result.stdout + result.stderr
-            if len(output) > 1900:
-                output = output[:1900] + "\n...Output truncated."
-
-            await message.channel.send(f"```\n{output}\n```")
-
-        except subprocess.TimeoutExpired:
-            await message.channel.send("Nmap scan timed out.")
-        except Exception as e:
-            await message.channel.send(f"Error running scan: {str(e)}")
-
-# Start the bot
 bot.run(TOKEN)
