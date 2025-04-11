@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: discord-nmap-bot
-    env: docker
-    plan: free
-    envVars:
-      - key: DISCORD_TOKEN
-        sync: false
