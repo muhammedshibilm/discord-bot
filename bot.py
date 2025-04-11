@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")  # Ensure this key is set in your Railway environment
 
-# Set up intents (adjust as needed)
+# Set up intents
 intents = discord.Intents.default()
-intents.message_content = True  # Needed if you use message commands; required for some slash interactions too
+intents.message_content = True
 
 # Create the bot instance
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -33,8 +33,13 @@ async def nmap(interaction: discord.Interaction, flag: str, ip: str):
     # Acknowledge the interaction immediately
     await interaction.response.defer()
     try:
+        # Optionally, add -Pn flag if not provided
+        flags_list = flag.split()
+        if "-Pn" not in flags_list:
+            flags_list.append("-Pn")
+        
         # Execute the Nmap command; adjust timeout as needed
-        result = subprocess.run(['nmap',"--unprivileged", flag, ip],
+        result = subprocess.run(['nmap', "--unprivileged", *flags_list, ip],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 text=True,
