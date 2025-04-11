@@ -34,7 +34,7 @@ async def nmap(interaction: discord.Interaction, flag: str, ip: str):
     await interaction.response.defer()
     try:
         # Execute the Nmap command; adjust timeout as needed
-        result = subprocess.run(['nmap', flag, ip],
+        result = subprocess.run(['nmap',"--unprivileged", flag, ip],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 text=True,
